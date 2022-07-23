@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::fs;
 use std::fs::DirEntry;
 use std::path::Path;
@@ -39,7 +40,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let regex = Regex::new(&args.regex_str).expect("Invalid regex in argument 1");
+    let regex = Regex::new(&args.regex_str).expect("Invalid regex");
 
     let mut matched: u32 = 0;
     let mut changed: u32 = 0;
@@ -54,7 +55,7 @@ fn main() {
     );
 }
 
-fn handle_directory<P: AsRef<Path>>(
+fn handle_directory<P: AsRef<Path> + Debug>(
     path: P,
     args: &Args,
     regex: &Regex,
@@ -62,27 +63,33 @@ fn handle_directory<P: AsRef<Path>>(
     changed: &mut u32,
     failed: &mut u32,
 ) {
-    for file_result in fs::read_dir(path).expect("File reading failed") {
-        if let Ok(file) = file_result {
-            let is_dir: bool;
-            match file.file_type() {
-                Ok(typ) => { is_dir = typ.is_dir() }
-                Err(e) => {
-                    *failed += 1;
-                    println!("{}", e);
-                    return;
-                }
-            }
-            if is_dir & args.recursive {
-                handle_directory(file.path(), args, regex, matched, changed, failed);
-            }
-            if !is_dir | (is_dir & args.folders) {
-                let process_result = rename(&regex, &args.template_str, file, args.verbose);
-                match process_result {
-                    Changed => *changed += 1,
-                    Matched => *matched += 1,
-                    Failed => *failed += 1,
-                    NotMatched => {}
+    let dir_iter = fs::read_dir(&path);
+    match dir_iter {
+        Err(e) => println!("{:?}: {}", path, e),
+        Ok(iter) => {
+            for file_result in iter {
+                if let Ok(file) = file_result {
+                    let is_dir: bool;
+                    match file.file_type() {
+                        Ok(typ) => { is_dir = typ.is_dir() }
+                        Err(e) => {
+                            *failed += 1;
+                            println!("{:?}: {}", file.file_name(), e);
+                            return;
+                        }
+                    }
+                    if is_dir & args.recursive {
+                        handle_directory(file.path(), args, regex, matched, changed, failed);
+                    }
+                    if !is_dir | (is_dir & args.folders) {
+                        let process_result = rename(&regex, &args.template_str, file, args.verbose);
+                        match process_result {
+                            Changed => *changed += 1,
+                            Matched => *matched += 1,
+                            Failed => *failed += 1,
+                            NotMatched => {}
+                        }
+                    }
                 }
             }
         }
@@ -108,7 +115,7 @@ fn rename(regex: &Regex, template: &str, file: DirEntry, verbose: bool) -> Renam
             if verbose {
                 println!("{} -> {}", filename, new_name);
             }
-            let rename_res = fs::rename(&filename, &new_name);
+            let rename_res = fs::rename(file.path(), &new_name);
             match rename_res {
                 Ok(_) => Changed,
                 Err(x) => {
