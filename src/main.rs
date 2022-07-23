@@ -6,7 +6,7 @@ use std::path::Path;
 use clap::Parser;
 use regex::Regex;
 
-use crate::RenameOutcome::{Changed, Matched, NotMatched};
+use crate::RenameOutcome::{Changed, Matched, NotMatched, Failed};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = "Mass renames files and optionally folders based on regex and template string")]
@@ -39,27 +39,30 @@ fn main() {
 
     let mut matched: u32 = 0;
     let mut changed: u32 = 0;
+    let mut failed: u32 = 0;
 
-    handle_directory(".", &args, &regex, &mut matched, &mut changed);
+    handle_directory(".", &args, &regex, &mut matched, &mut changed, &mut failed);
     println!(
-        "{} files matched, {} files renamed",
-        matched + changed,
-        changed
+        "{} files matched, {} files renamed, {} errors",
+        matched + changed + failed,
+        changed,
+        failed
     );
 }
 
-fn handle_directory<P: AsRef<Path>>(path: P, args: &Args, regex: &Regex, matched: &mut u32, changed: &mut u32) {
+fn handle_directory<P: AsRef<Path>>(path: P, args: &Args, regex: &Regex, matched: &mut u32, changed: &mut u32, failed: &mut u32) {
     for file_result in fs::read_dir(path).unwrap() {
         if let Ok(file) = file_result {
             let is_dir = file.file_type().expect("filetype reading failed").is_dir();
             if is_dir & args.recursive {
-                handle_directory(file.path(), args, regex, matched, changed);
+                handle_directory(file.path(), args, regex, matched, changed, failed);
             }
             if !is_dir | (is_dir & args.folders) {
                 let process_result = rename(&regex, &args.template_str, file, args.verbose);
                 match process_result {
                     Changed => *changed += 1,
                     Matched => *matched += 1,
+                    Failed => *failed += 1,
                     NotMatched => {}
                 }
             }
@@ -71,6 +74,7 @@ enum RenameOutcome {
     Changed,
     Matched,
     NotMatched,
+    Failed,
 }
 
 fn rename(regex: &Regex, template: &str, file: DirEntry, verbose: bool) -> RenameOutcome {
@@ -85,8 +89,14 @@ fn rename(regex: &Regex, template: &str, file: DirEntry, verbose: bool) -> Renam
             if verbose {
                 println!("{} -> {}", filename, new_name);
             }
-            fs::rename(filename, new_name).expect("Renaming failed");
-            Changed
+            let rename_res = fs::rename(&filename, &new_name);
+            match rename_res {
+                Ok(_) => Changed,
+                Err(x) => {
+                    println!("{}: {}", filename, x);
+                    Failed
+                }
+            }
         } else {
             if verbose {
                 println!("{} unchanged", filename);
