@@ -48,8 +48,9 @@ fn main() {
 
     handle_directory(".", &args, &regex, &mut matched, &mut changed, &mut failed);
     println!(
-        "{} files matched, {} files renamed, {} errors",
+        "{} files matched, {} files ignored, {} files renamed, {} errors",
         matched + changed + failed,
+        matched,
         changed,
         failed
     );
