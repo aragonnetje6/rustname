@@ -6,11 +6,20 @@ use regex::Regex;
 
 use crate::RenameOutcome::{Changed, Matched, NotMatched};
 
+use clap::Parser;
+
+#[derive(Parser)]
+#[clap(name = "RustName")]
+#[clap(author = "Twan Stok <twanstok@gmail.com>")]
+#[clap(version = "0.0")]
+#[clap(about = "Mass renaming tool", long_about = "Mass renames files and optionally folders based on regex and template string")]
+struct Args {
+
+
+}
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 3, "Wrong number of arguments provided");
-    let regex = Regex::new(args.get(1).unwrap()).expect("Invalid regex in argument 1");
-    let template = args.get(2).unwrap();
+    let (regex, template, options) = get_args();
 
     let mut matched = 0;
     let mut changed = 0;
@@ -29,6 +38,21 @@ fn main() {
         matched + changed,
         changed
     );
+}
+
+enum ArgOption {
+    Folders,
+    Recursive
+}
+
+fn get_args() -> (Regex, String, Vec<ArgOption>) {
+    let args: Vec<String> = env::args().collect();
+    assert!(args.len() >= 3, "Wrong number of arguments provided");
+    let options = vec![];
+
+    let regex = Regex::new(args.get(1).unwrap()).expect("Invalid regex in argument 1");
+    let template = args.get(2).unwrap().to_string();
+    (regex, template, options)
 }
 
 enum RenameOutcome {

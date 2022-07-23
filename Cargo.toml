@@ -2,8 +2,15 @@
 name = "rustname"
 version = "0.1.0"
 edition = "2021"
+description = "Mass renaming tool"
+readme = "readme.md"
+license = "MIT"
+keywords = ["cli", "regex", "pattern"]
+categories = ["command-line-utilities", "filesystem"]
+#authors = "Twan Stok <twanstok@gmail.com>"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 regex = "1.6.0"
+clap = { version = "3.2.13", features = ["derive"] }
