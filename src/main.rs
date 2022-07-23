@@ -1,4 +1,3 @@
-
 use std::fs;
 use std::fs::DirEntry;
 use std::path::Path;
@@ -6,10 +5,15 @@ use std::path::Path;
 use clap::Parser;
 use regex::Regex;
 
-use crate::RenameOutcome::{Changed, Matched, NotMatched, Failed};
+use crate::RenameOutcome::{Changed, Failed, Matched, NotMatched};
 
 #[derive(Parser)]
-#[clap(author, version, about, long_about = "Mass renames files and optionally folders based on regex and template string")]
+#[clap(
+author,
+version,
+about,
+long_about = "Mass renames files and optionally folders based on regex and template string"
+)]
 struct Args {
     /// Include subdirectories in the search
     #[clap(short, long, action)]
@@ -50,10 +54,25 @@ fn main() {
     );
 }
 
-fn handle_directory<P: AsRef<Path>>(path: P, args: &Args, regex: &Regex, matched: &mut u32, changed: &mut u32, failed: &mut u32) {
-    for file_result in fs::read_dir(path).unwrap() {
+fn handle_directory<P: AsRef<Path>>(
+    path: P,
+    args: &Args,
+    regex: &Regex,
+    matched: &mut u32,
+    changed: &mut u32,
+    failed: &mut u32,
+) {
+    for file_result in fs::read_dir(path).expect("File reading failed") {
         if let Ok(file) = file_result {
-            let is_dir = file.file_type().expect("filetype reading failed").is_dir();
+            let is_dir: bool;
+            match file.file_type() {
+                Ok(typ) => { is_dir = typ.is_dir() }
+                Err(e) => {
+                    *failed += 1;
+                    println!("{}", e);
+                    return;
+                }
+            }
             if is_dir & args.recursive {
                 handle_directory(file.path(), args, regex, matched, changed, failed);
             }
